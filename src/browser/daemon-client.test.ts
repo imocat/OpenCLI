@@ -365,6 +365,37 @@ describe('daemon-client', () => {
     expect(body.windowMode).toBe('background');
   });
 
+  it('sendCommand forwards OPENCLI_TAB_PLACEMENT to the daemon command', async () => {
+    vi.stubEnv('OPENCLI_TAB_PLACEMENT', 'existing-window');
+    vi.mocked(fetch).mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ id: 'server', ok: true, data: 'ok' }),
+    } as Response);
+
+    await sendCommand('exec', { code: '1 + 1' });
+
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)) as { tabPlacement?: string };
+    expect(body.tabPlacement).toBe('existing-window');
+  });
+
+  it('sendCommand prefers an explicit tabPlacement and rejects invalid environment values', async () => {
+    vi.stubEnv('OPENCLI_TAB_PLACEMENT', 'invalid-placement');
+    vi.mocked(fetch).mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ id: 'server', ok: true, data: 'ok' }),
+    } as Response);
+
+    await sendCommand('exec', { code: '1 + 1', tabPlacement: 'owned-container' });
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)) as { tabPlacement?: string };
+    expect(body.tabPlacement).toBe('owned-container');
+
+    vi.mocked(fetch).mockClear();
+    await expect(sendCommand('exec', { code: '2 + 2' })).rejects.toThrow(
+      'OPENCLI_TAB_PLACEMENT must be one of: owned-container, existing-window',
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('sendCommand retries executor-transient errors ONCE with a NEW id (re-execution is a new logical attempt)', async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock

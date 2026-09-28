@@ -1,5 +1,7 @@
 import * as fs from 'node:fs';
 import { cli, Strategy } from '@jackwener/opencli/registry';
+import { openCliTempPath } from '../_shared/temp-path.js';
+const DEFAULT_OUTPUT_PATH = openCliTempPath('chatwise-export.md');
 export const exportCommand = cli({
     site: 'chatwise',
     name: 'export',
@@ -9,11 +11,11 @@ export const exportCommand = cli({
     strategy: Strategy.UI,
     browser: true,
     args: [
-        { name: 'output', required: false, help: 'Output file (default: /tmp/chatwise-export.md)' },
+        { name: 'output', required: false, help: `Output file (default: ${DEFAULT_OUTPUT_PATH})` },
     ],
     columns: ['Status', 'File', 'Messages'],
     func: async (page, kwargs) => {
-        const outputPath = kwargs.output || '/tmp/chatwise-export.md';
+        const outputPath = kwargs.output || DEFAULT_OUTPUT_PATH;
         const md = await page.evaluate(`
       (function() {
         const selectors = [

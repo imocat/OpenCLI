@@ -4,11 +4,13 @@ import * as path from 'node:path';
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { ArgumentError, AuthRequiredError, CliError, CommandExecutionError, EXIT_CODES } from '@jackwener/opencli/errors';
 import { httpDownload } from '@jackwener/opencli/download';
+import { openCliTempPath } from '../_shared/temp-path.js';
 const INSTAGRAM_APP_ID = '936619743392459';
 const INSTAGRAM_HOST_SUFFIX = 'instagram.com';
 const INSTAGRAM_SHORTCODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 const MAX_INSTAGRAM_MEDIA_ID = 9223372036854775807n;
 const SUPPORTED_KINDS = new Set(['p', 'reel', 'tv']);
+const DEFAULT_OUTPUT_DIR = openCliTempPath('opencli-instagram-downloads');
 function displayPath(filePath) {
     const home = os.homedir();
     return filePath.startsWith(home) ? `~${filePath.slice(home.length)}` : filePath;
@@ -21,7 +23,7 @@ function unwrapEvaluateResult(result) {
 }
 export function resolveOutputDir(value) {
     const raw = String(value || '').trim();
-    if (!raw) return path.join(os.homedir(), 'Downloads', 'Instagram');
+    if (!raw) return DEFAULT_OUTPUT_DIR;
     if (raw === '~') return os.homedir();
     if (raw.startsWith('~/')) return path.join(os.homedir(), raw.slice(2));
     return path.resolve(raw);
@@ -346,7 +348,7 @@ cli({
     navigateBefore: false,
     args: [
         { name: 'url', positional: true, required: true, help: 'Instagram post / reel / tv URL' },
-        { name: 'path', default: '~/Downloads/Instagram', help: 'Download directory' },
+        { name: 'path', default: DEFAULT_OUTPUT_DIR, help: `Download directory (default: ${DEFAULT_OUTPUT_DIR})` },
     ],
     func: async (page, kwargs) => {
         const browserPage = ensurePage(page);

@@ -15,7 +15,8 @@ function getNowMs() {
 }
 
 export function getXiaoyuzhouCredentialFile() {
-    return path.join(os.homedir(), '.opencli', 'xiaoyuzhou.json');
+    const configDir = process.env.OPENCLI_CONFIG_DIR || path.join(os.homedir(), '.opencli');
+    return path.join(configDir, 'xiaoyuzhou.json');
 }
 
 function createXiaoyuzhouAuthError(message) {

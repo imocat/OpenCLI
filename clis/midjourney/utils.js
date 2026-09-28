@@ -10,6 +10,7 @@ import { log } from '@jackwener/opencli/logger';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { openCliTempPath } from '../_shared/temp-path.js';
 
 export const MIDJOURNEY_DOMAIN = 'www.midjourney.com';
 export const MIDJOURNEY_URL = 'https://www.midjourney.com';
@@ -17,7 +18,8 @@ export const MIDJOURNEY_IMAGINE_URL = `${MIDJOURNEY_URL}/imagine`;
 export const MIDJOURNEY_CDN = 'https://cdn.midjourney.com';
 export const COMPOSER_SELECTOR = '#desktop_input_bar';
 export const CREDITS_PER_FAST_MINUTE = 60_000;
-export const MIDJOURNEY_SITE_DIR = path.join(os.homedir(), '.opencli', 'sites', 'midjourney');
+const OPENCLI_CONFIG_DIR = process.env.OPENCLI_CONFIG_DIR || path.join(os.homedir(), '.opencli');
+export const MIDJOURNEY_SITE_DIR = path.join(OPENCLI_CONFIG_DIR, 'sites', 'midjourney');
 export const USAGE_SNAPSHOT_PATH = path.join(MIDJOURNEY_SITE_DIR, 'usage-snapshots.jsonl');
 export const IMAGE_EXTENSIONS = new Map([
   ['.png', 'image/png'],
@@ -27,6 +29,7 @@ export const IMAGE_EXTENSIONS = new Map([
   ['.gif', 'image/gif'],
 ]);
 export const MAX_REFERENCE_BYTES = 10 * 1024 * 1024;
+export const DEFAULT_MIDJOURNEY_OUTPUT_DIR = openCliTempPath('opencli-midjourney');
 
 // Midjourney job ids are UUID-shaped but historical ids do not always use the
 // RFC 4122 version/variant nibbles, so validate the canonical 8-4-4-4-12 shape.
@@ -260,7 +263,7 @@ export function originalImageUrl(jobId, index) {
 }
 
 export function resolveOutputDir(value) {
-  const raw = String(value || '~/Pictures/Midjourney').trim();
+  const raw = String(value || DEFAULT_MIDJOURNEY_OUTPUT_DIR).trim();
   if (!raw) throw new ArgumentError('--output cannot be empty');
   const expanded = raw === '~' ? os.homedir() : raw.startsWith('~/') ? path.join(os.homedir(), raw.slice(2)) : raw;
   return path.resolve(expanded);

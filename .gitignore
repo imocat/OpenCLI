@@ -13,6 +13,7 @@ docs/.vitepress/dist
 docs/.vitepress/cache
 
 # Extensions & Secrets
+extension-package/
 *.pem
 *.crx
 *.zip

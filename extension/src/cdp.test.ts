@@ -476,11 +476,11 @@ describe('cdp network capture correctness', () => {
   });
 
   function createNetworkMock() {
-    const onEventListeners = [];
+    const onEventListeners: Array<(source: { tabId?: number }, method: string, params?: any) => void | Promise<void>> = [];
     const debuggerApi = {
       attach: vi.fn(async () => {}),
       detach: vi.fn(async () => {}),
-      sendCommand: vi.fn(async (_target, method, params) => {
+      sendCommand: vi.fn(async (_target: unknown, method: string, params?: any) => {
         if (method === 'Runtime.evaluate' && params?.expression === '1') return { result: { value: '1' } };
         if (method === 'Network.getRequestPostData') return {}; // no override; use inline postData
         return {};
@@ -493,7 +493,7 @@ describe('cdp network capture correctness', () => {
       onRemoved: { addListener: vi.fn() },
       onUpdated: { addListener: vi.fn() },
     };
-    const fire = async (method, params) => {
+    const fire = async (method: string, params?: any) => {
       for (const fn of onEventListeners) await fn({ tabId: 1 }, method, params);
     };
     return {
@@ -563,11 +563,11 @@ describe('cdp evaluateInFrame stale context fallback', () => {
   });
 
   it('falls back to the frame target when the cached context id went stale', async () => {
-    const debuggerEventListeners = [];
+    const debuggerEventListeners: Array<(source: { tabId?: number }, method: string, params?: any) => void> = [];
     const debuggerApi = {
       attach: vi.fn(async () => {}),
       detach: vi.fn(async () => {}),
-      sendCommand: vi.fn(async (target, method, params) => {
+      sendCommand: vi.fn(async (target: { targetId?: string }, method: string, params?: any) => {
         if (method === 'Runtime.enable') return {};
         // The cached context id is stale after the frame navigated: CDP rejects.
         if (method === 'Runtime.evaluate' && params?.contextId === 99) {

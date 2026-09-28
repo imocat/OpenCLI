@@ -7,7 +7,7 @@ async function hasGoogleSessionCookie(page) {
   return names.has('SID') || names.has('SAPISID') || names.has('__Secure-1PSID');
 }
 
-async function verifyYoutubeIdentity(page) {
+export async function verifyYoutubeIdentity(page) {
   if (!await hasGoogleSessionCookie(page)) {
     throw new AuthRequiredError('www.youtube.com', 'Google session cookies missing');
   }
@@ -34,15 +34,44 @@ async function verifyYoutubeIdentity(page) {
     })()
   `);
   if (probe?.kind === 'auth') throw new AuthRequiredError('www.youtube.com', probe.detail);
-  if (!probe?.ok) throw new CommandExecutionError(`Unexpected YouTube probe: ${JSON.stringify(probe)}`);
-  return { name: probe.name };
+  if (!probe?.ok) throw new CommandExecutionError(`Unexpected YouTube account probe: ${JSON.stringify(probe)}`);
+
+  await page.goto('https://www.youtube.com/account_advanced');
+  await page.wait(2);
+  const channelProbe = await page.evaluate(`
+    (() => {
+      const visibleText = [
+        document.body?.innerText || '',
+        ...Array.from(document.querySelectorAll('input, textarea')).map((element) => String(element.value || '')),
+      ].join(' ');
+      const channelId = visibleText.match(/(?:^|[^A-Za-z0-9_-])(UC[A-Za-z0-9_-]{22})(?![A-Za-z0-9_-])/)?.[1] || '';
+      const handleLink = Array.from(document.querySelectorAll('a[href^="/@"]'))
+        .map((element) => element.getAttribute('href') || '')
+        .find((href) => href.startsWith('/@')) || '';
+      const handle = handleLink ? decodeURIComponent(handleLink.slice(2).split(/[/?#]/)[0]) : '';
+      return { ok: true, channel_id: channelId, handle };
+    })()
+  `);
+  if (!channelProbe?.ok) throw new CommandExecutionError(`Unexpected YouTube channel probe: ${JSON.stringify(channelProbe)}`);
+  if (!channelProbe.channel_id) {
+    throw new CommandExecutionError('YouTube Advanced settings did not expose the current channel ID');
+  }
+  const name = String(channelProbe.handle || probe.name || '').trim();
+  if (!name) {
+    throw new CommandExecutionError('YouTube did not expose the current channel name or handle');
+  }
+  return {
+    channel_id: String(channelProbe.channel_id),
+    handle: String(channelProbe.handle || ''),
+    name,
+  };
 }
 
 registerSiteAuthCommands({
   site: 'youtube',
   domain: 'www.youtube.com',
   loginUrl: 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F',
-  columns: ['name'],
+  columns: ['channel_id', 'handle', 'name'],
   quickCheck: hasGoogleSessionCookie,
   verify: verifyYoutubeIdentity,
   poll: async (page) => {

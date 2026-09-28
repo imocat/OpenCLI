@@ -5,13 +5,14 @@
  */
 
 import { sleep } from '../utils.js';
-import { BrowserConnectError, SessionBusyError } from '../errors.js';
+import { BrowserConnectError, CliError, EXIT_CODES, SessionBusyError } from '../errors.js';
 import { COMMAND_RESULT_UNKNOWN_CODE, COMMAND_RESULT_UNKNOWN_HINT } from '../daemon-utils.js';
 import { classifyBrowserError } from './errors.js';
 import { profileRouteParams, resolveProfileSelection } from './profile.js';
 import { DEFAULT_BROWSER_CONNECT_TIMEOUT } from './config.js';
 import { ensureBrowserBridgeReady } from './daemon-lifecycle.js';
 import { isPreDispatchError } from './bridge-readiness.js';
+import { resolveBrowserTabPlacementFromEnv, type BrowserTabPlacement } from './tab-placement.js';
 import {
   fetchDaemonStatus,
   getDaemonHealth,
@@ -235,6 +236,8 @@ export interface DaemonCommand {
   cdpParams?: Record<string, unknown>;
   /** Window foreground/background policy for owned Browser Bridge containers. */
   windowMode?: 'foreground' | 'background';
+  /** Placement policy for tabs owned by Browser Bridge sessions. */
+  tabPlacement?: BrowserTabPlacement;
   /** Custom idle timeout in seconds for this session. Overrides the default. */
   idleTimeout?: number;
   /** Frame index for cross-frame operations (0-based, from 'frames' action) */
@@ -284,9 +287,9 @@ export interface DaemonResult {
   page?: string;
 }
 
-export class BrowserCommandError extends Error {
-  constructor(message: string, readonly code?: string, readonly hint?: string) {
-    super(message);
+export class BrowserCommandError extends CliError {
+  constructor(message: string, code: string = 'browser_command_failed', hint?: string) {
+    super(code, message, hint, EXIT_CODES.GENERIC_ERROR);
     this.name = 'BrowserCommandError';
   }
 }
@@ -340,6 +343,7 @@ async function sendCommandRaw(
   const contextId = routing.contextId;
   const preferredContextId = routing.preferredContextId;
   const windowMode = params.windowMode ?? envWindowMode;
+  const tabPlacement = params.tabPlacement ?? resolveBrowserTabPlacementFromEnv();
 
   let id = generateId();
   let ensureUsed = false;
@@ -381,6 +385,7 @@ async function sendCommandRaw(
       ...(contextId && { contextId }),
       ...(preferredContextId && { preferredContextId }),
       ...(windowMode && { windowMode }),
+      ...(tabPlacement && { tabPlacement }),
       // Carry the run identity so the daemon can acquire/refresh the write
       // lease on the persistent site session. The same runId across every exec
       // of one command is the heartbeat that keeps a long-running holder alive.

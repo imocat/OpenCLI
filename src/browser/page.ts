@@ -18,6 +18,7 @@ import { waitForDomStableJs } from './dom-helpers.js';
 import { CDPBasePage } from './base-page.js';
 import { classifyBrowserError } from './errors.js';
 import { log } from '../logger.js';
+import type { BrowserTabPlacement } from './tab-placement.js';
 
 function isUnsupportedNetworkCaptureError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
@@ -51,6 +52,7 @@ export class Page extends CDPBasePage {
     private readonly siteSession?: 'ephemeral' | 'persistent',
     /** Soft profile preference (config default) — daemon arbitrates; see profileRouteParams. */
     public readonly preferredContextId?: string,
+    private readonly tabPlacement?: BrowserTabPlacement,
   ) {
     super();
     this._idleTimeout = idleTimeout;
@@ -62,7 +64,7 @@ export class Page extends CDPBasePage {
   private _networkCaptureWarned = false;
 
   /** Helper: spread session into command params */
-  private _sessionOpts(): { session: string; surface: 'browser' | 'adapter'; idleTimeout?: number; contextId?: string; preferredContextId?: string; windowMode?: 'foreground' | 'background'; siteSession?: 'ephemeral' | 'persistent' } {
+  private _sessionOpts(): { session: string; surface: 'browser' | 'adapter'; idleTimeout?: number; contextId?: string; preferredContextId?: string; windowMode?: 'foreground' | 'background'; siteSession?: 'ephemeral' | 'persistent'; tabPlacement?: BrowserTabPlacement } {
     return {
       session: this.session,
       surface: this.surface,
@@ -71,6 +73,7 @@ export class Page extends CDPBasePage {
       ...(this._idleTimeout != null && { idleTimeout: this._idleTimeout }),
       ...(this.windowMode && { windowMode: this.windowMode }),
       ...(this.siteSession && { siteSession: this.siteSession }),
+      ...(this.tabPlacement && { tabPlacement: this.tabPlacement }),
     };
   }
 
@@ -85,6 +88,7 @@ export class Page extends CDPBasePage {
       ...(this._idleTimeout != null && { idleTimeout: this._idleTimeout }),
       ...(this.windowMode && { windowMode: this.windowMode }),
       ...(this.siteSession && { siteSession: this.siteSession }),
+      ...(this.tabPlacement && { tabPlacement: this.tabPlacement }),
     };
   }
 

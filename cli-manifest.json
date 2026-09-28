@@ -6467,7 +6467,7 @@
         "name": "op",
         "type": "str",
         "required": false,
-        "help": "Output directory (default: ~/Pictures/chatgpt)"
+        "help": "Output directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-chatgpt-images)"
       },
       {
         "name": "sd",
@@ -7020,7 +7020,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file (default: /tmp/chatwise-export.md)"
+        "help": "Output file (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/chatwise-export.md)"
       }
     ],
     "columns": [
@@ -7124,7 +7124,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file path (default: /tmp/chatwise-snapshot.txt)"
+        "help": "Output file path (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/chatwise-snapshot.txt)"
       }
     ],
     "columns": [
@@ -7765,7 +7765,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file (default: /tmp/codex-export.md)"
+        "help": "Output file (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/codex-export.md)"
       }
     ],
     "columns": [
@@ -8068,7 +8068,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file path (default: /tmp/codex-snapshot.txt)"
+        "help": "Output file path (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/codex-snapshot.txt)"
       }
     ],
     "columns": [
@@ -9684,7 +9684,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file (default: /tmp/cursor-export.md)"
+        "help": "Output file (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/cursor-export.md)"
       }
     ],
     "columns": [
@@ -9806,7 +9806,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file path (default: /tmp/cursor-snapshot.txt)"
+        "help": "Output file path (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/cursor-snapshot.txt)"
       }
     ],
     "columns": [
@@ -12188,7 +12188,7 @@
   {
     "site": "doubao-app",
     "name": "dump",
-    "description": "Dump Doubao desktop app DOM and snapshot to /tmp for debugging",
+    "description": "Dump Doubao desktop app DOM and snapshot to the temporary directory for debugging",
     "access": "read",
     "domain": "doubao-app",
     "strategy": "ui",
@@ -12251,7 +12251,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file path (default: /tmp/doubao-screenshot.png)"
+        "help": "Output file path (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/doubao-screenshot.png)"
       }
     ],
     "columns": [
@@ -14848,9 +14848,9 @@
       {
         "name": "op",
         "type": "str",
-        "default": "~/tmp/gemini-images",
+        "default": "/var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-gemini-images",
         "required": false,
-        "help": "Output directory shorthand"
+        "help": "Output directory shorthand (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-gemini-images)"
       },
       {
         "name": "sd",
@@ -19662,9 +19662,9 @@
       {
         "name": "path",
         "type": "str",
-        "default": "~/Downloads/Instagram",
+        "default": "/var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-instagram-downloads",
         "required": false,
-        "help": "Download directory"
+        "help": "Download directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-instagram-downloads)"
       }
     ],
     "type": "js",
@@ -26093,9 +26093,9 @@
       {
         "name": "output",
         "type": "str",
-        "default": "~/Pictures/Midjourney",
+        "default": "/var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-midjourney",
         "required": false,
-        "help": "Output directory"
+        "help": "Output directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-midjourney)"
       },
       {
         "name": "force",
@@ -26225,9 +26225,9 @@
       {
         "name": "output",
         "type": "str",
-        "default": "~/Pictures/Midjourney",
+        "default": "/var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-midjourney",
         "required": false,
-        "help": "Output directory"
+        "help": "Output directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-midjourney)"
       },
       {
         "name": "skip-download",
@@ -32478,9 +32478,9 @@
       {
         "name": "op",
         "type": "str",
-        "default": "~/Pictures/qianwen",
+        "default": "/var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-qwen-images",
         "required": false,
-        "help": "Output directory"
+        "help": "Output directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-qwen-images)"
       },
       {
         "name": "new",
@@ -37042,7 +37042,7 @@
         "name": "op",
         "type": "str",
         "required": false,
-        "help": "Output directory (default: ~/Music/suno)"
+        "help": "Output directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-suno)"
       },
       {
         "name": "confirm-paid",
@@ -37141,7 +37141,7 @@
         "name": "op",
         "type": "str",
         "required": false,
-        "help": "Output directory (default: ~/Music/suno)"
+        "help": "Output directory (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/opencli-suno)"
       },
       {
         "name": "timeout",
@@ -38655,7 +38655,7 @@
     "name": "export",
     "description": "Export the current Trae CN conversation to Markdown",
     "access": "read",
-    "example": "OPENCLI_CDP_ENDPOINT=http://127.0.0.1:39240 OPENCLI_CDP_TARGET=talk opencli trae-cn export --limit 20 --output /tmp/trae-cn-export.md",
+    "example": "OPENCLI_CDP_ENDPOINT=http://127.0.0.1:39240 OPENCLI_CDP_TARGET=talk opencli trae-cn export --limit 20 --output /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/trae-cn-export.md",
     "domain": "localhost",
     "strategy": "ui",
     "browser": true,
@@ -38664,7 +38664,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file (default: /tmp/trae-cn-export.md)"
+        "help": "Output file (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/trae-cn-export.md)"
       },
       {
         "name": "limit",
@@ -38789,7 +38789,7 @@
     "name": "screenshot",
     "description": "Capture a snapshot of the current Trae CN window (DOM + Accessibility tree)",
     "access": "read",
-    "example": "OPENCLI_CDP_ENDPOINT=http://127.0.0.1:39240 OPENCLI_CDP_TARGET=talk opencli trae-cn screenshot --output /tmp/trae-cn-snapshot.txt",
+    "example": "OPENCLI_CDP_ENDPOINT=http://127.0.0.1:39240 OPENCLI_CDP_TARGET=talk opencli trae-cn screenshot",
     "domain": "localhost",
     "strategy": "ui",
     "browser": true,
@@ -38798,7 +38798,7 @@
         "name": "output",
         "type": "str",
         "required": false,
-        "help": "Output file path (default: /tmp/trae-cn-snapshot.txt)"
+        "help": "Output file path (default: /var/folders/pn/245111gn1533sc837x0yv3b40000gn/T/trae-cn-snapshot.txt)"
       }
     ],
     "columns": [
@@ -46068,7 +46068,9 @@
       "status",
       "logged_in",
       "site",
+      "id",
       "username",
+      "redId",
       "followers"
     ],
     "type": "js",
@@ -46417,7 +46419,9 @@
     "columns": [
       "logged_in",
       "site",
+      "id",
       "username",
+      "redId",
       "followers"
     ],
     "type": "js",
@@ -47983,6 +47987,8 @@
       "status",
       "logged_in",
       "site",
+      "channel_id",
+      "handle",
       "name"
     ],
     "type": "js",
@@ -48300,6 +48306,8 @@
     "columns": [
       "logged_in",
       "site",
+      "channel_id",
+      "handle",
       "name"
     ],
     "type": "js",

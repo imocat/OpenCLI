@@ -6,6 +6,46 @@ async function hasWechatChannelsSessionCookie(page) {
   return cookies.some(c => c.name === 'sessionid' && c.value);
 }
 
+export function parseWechatChannelsIdentityProbe(probe) {
+  if (!probe || typeof probe !== 'object' || Array.isArray(probe)) {
+    throw new CommandExecutionError('WeChat Channels auth_data returned an invalid identity probe');
+  }
+  if (probe.kind === 'auth' || probe.httpStatus === 401 || probe.httpStatus === 403) {
+    throw new AuthRequiredError('channels.weixin.qq.com', probe.detail ?? 'WeChat Channels requires login');
+  }
+  if (probe.kind === 'exception') {
+    throw new CommandExecutionError(`WeChat Channels whoami failed: ${probe.detail}`);
+  }
+  if (!probe.ok) {
+    throw new CommandExecutionError(`HTTP ${probe.httpStatus ?? 0} from auth_data`);
+  }
+  const payload = probe.payload;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new CommandExecutionError('WeChat Channels auth_data returned malformed JSON');
+  }
+  const code = payload.errCode ?? payload.base_resp?.ret ?? payload.baseResp?.ret;
+  const message = String(payload.errMsg ?? payload.base_resp?.err_msg ?? payload.baseResp?.errMsg ?? '');
+  if (code != null && Number(code) !== 0) {
+    if (/未登录|登录|login|session/i.test(message)) {
+      throw new AuthRequiredError('channels.weixin.qq.com', `WeChat Channels auth_data rejected the session: ${message}`);
+    }
+    throw new CommandExecutionError(`WeChat Channels auth_data failed: code=${String(code)}${message ? ` ${message}` : ''}`);
+  }
+  const user = payload.data?.finderUser
+    ?? payload.data?.finder_user
+    ?? payload.finderUser
+    ?? payload.finder_user;
+  if (!user || typeof user !== 'object' || Array.isArray(user)) {
+    throw new CommandExecutionError('WeChat Channels auth_data did not expose finderUser');
+  }
+  const userId = String(user.uniqId ?? user.uniq_id ?? user.finderUsername ?? user.username ?? '').trim();
+  const name = String(user.nickname ?? user.name ?? '').trim();
+  if (!userId) {
+    throw new CommandExecutionError('WeChat Channels auth_data did not expose a stable account ID');
+  }
+  return { user_id: userId, name };
+}
+
 async function verifyWechatChannelsIdentity(page) {
   if (!await hasWechatChannelsSessionCookie(page)) {
     throw new AuthRequiredError('channels.weixin.qq.com', 'WeChat Channels sessionid cookie missing');
@@ -23,27 +63,15 @@ async function verifyWechatChannelsIdentity(page) {
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
       });
-      if (!r.ok) return { kind: 'http', httpStatus: r.status };
-      const d = await r.json();
-      if (!d || d.base_resp?.ret !== 0) {
-        return { kind: 'auth', detail: 'WeChat Channels auth_data base_resp.ret=' + String(d?.base_resp?.ret) };
-      }
-      const fu = d.data?.finder_user || d.finder_user || {};
-      const userId = String(fu.uniq_id || fu.username || '');
-      const name = String(fu.nickname || fu.name || '');
-      if (!userId && !name) {
-        return { kind: 'auth', detail: 'WeChat Channels auth_data 200 but finder_user empty' };
-      }
-      return { ok: true, user_id: userId, name };
+      const text = await r.text();
+      let payload = null;
+      try { payload = JSON.parse(text); } catch {}
+      return { ok: r.ok, httpStatus: r.status, payload, preview: text.slice(0, 200) };
     } catch (e) {
       return { kind: 'exception', detail: String(e && e.message || e) };
     }
   })()`);
-  if (probe?.kind === 'auth') throw new AuthRequiredError('channels.weixin.qq.com', probe.detail);
-  if (probe?.kind === 'http') throw new CommandExecutionError(`HTTP ${probe.httpStatus} from auth_data`);
-  if (probe?.kind === 'exception') throw new CommandExecutionError(`WeChat Channels whoami failed: ${probe.detail}`);
-  if (!probe?.ok) throw new CommandExecutionError(`Unexpected WeChat Channels probe: ${JSON.stringify(probe)}`);
-  return { user_id: probe.user_id, name: probe.name };
+  return parseWechatChannelsIdentityProbe(probe);
 }
 
 registerSiteAuthCommands({

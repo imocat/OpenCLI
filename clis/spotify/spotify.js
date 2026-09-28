@@ -8,10 +8,11 @@ import { execFile } from 'child_process';
 import { assertSpotifyCredentialsConfigured, getFirstSpotifyTrack, mapSpotifyTrackResults, parseDotEnv, resolveSpotifyCredentials, } from './utils.js';
 // ── Credentials ───────────────────────────────────────────────────────────────
 // Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET as environment variables,
-// or place them in ~/.opencli/spotify.env:
+// or place them in OPENCLI_CONFIG_DIR/spotify.env (defaults to ~/.opencli/spotify.env):
 //   SPOTIFY_CLIENT_ID=your_id
 //   SPOTIFY_CLIENT_SECRET=your_secret
-const ENV_FILE = join(homedir(), '.opencli', 'spotify.env');
+const CONFIG_DIR = process.env.OPENCLI_CONFIG_DIR || join(homedir(), '.opencli');
+const ENV_FILE = join(CONFIG_DIR, 'spotify.env');
 function loadEnv() {
     if (!existsSync(ENV_FILE))
         return {};
@@ -29,7 +30,7 @@ const SCOPES = [
     'playlist-read-private',
 ].join(' ');
 // ── Token storage ─────────────────────────────────────────────────────────────
-const TOKEN_FILE = join(homedir(), '.opencli', 'spotify-tokens.json');
+const TOKEN_FILE = join(CONFIG_DIR, 'spotify-tokens.json');
 function loadTokens() {
     try {
         return JSON.parse(readFileSync(TOKEN_FILE, 'utf-8'));
@@ -38,8 +39,8 @@ function loadTokens() {
         return null;
     }
 }
-function saveTokens(tokens) {
-    mkdirSync(join(homedir(), '.opencli'), { recursive: true });
+export function saveTokens(tokens) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
     writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
 }
 async function refreshAccessToken(refreshToken) {

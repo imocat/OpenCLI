@@ -77,6 +77,8 @@ describe('site policy', () => {
       .toBe('/managed/opencli-policy.yaml');
     expect(defaultSitePolicyPath({}, '/home/test'))
       .toBe('/home/test/.opencli/policy.yaml');
+    expect(defaultSitePolicyPath({ OPENCLI_CONFIG_DIR: '/managed/opencli' }, '/home/test'))
+      .toBe('/managed/opencli/policy.yaml');
   });
 
   it('disables and re-enables a site while preserving unrelated policy sections', () => {

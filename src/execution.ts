@@ -24,7 +24,7 @@ import type { IPage } from './types.js';
 import { pathToFileURL } from 'node:url';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
+import * as path from 'node:path';
 import { executePipeline } from './pipeline/index.js';
 import { adapterLoadError, ArgumentError, CommandExecutionError, SessionBusyError, attachTraceReceipt, getErrorMessage } from './errors.js';
 import { shouldUseBrowserSession } from './capabilityRouting.js';
@@ -38,11 +38,12 @@ import { probeCDP, resolveElectronEndpoint } from './launcher.js';
 import { ObservationSession, exportObservationSession, type ObservationExportResult, type ObservationExportStatus } from './observation/index.js';
 import { resolveAdapterSourcePath } from './adapter-source.js';
 import { assertSiteEnabled } from './site-policy.js';
+import { getOpenCliConfigDir } from './paths.js';
 
 const _loadedModules = new Map<string, Promise<void>>();
 /** Track mtime of loaded user adapter files for hot-reload in daemon mode. */
 const _moduleMtimes = new Map<string, number>();
-const _userClisDir = `${os.homedir()}/.opencli/clis/`;
+const _userClisDir = `${path.join(getOpenCliConfigDir(), 'clis')}${path.sep}`;
 
 type TraceMode = 'off' | 'on' | 'retain-on-failure';
 

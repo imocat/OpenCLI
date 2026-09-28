@@ -1044,6 +1044,12 @@ function getWindowRole(key, ownership) {
 function getWindowMode(key) {
   return sessionOverrides.get(key)?.windowMode ?? (getOwnedWindowRole(key) === "interactive" ? "foreground" : "background");
 }
+function getTabPlacement(key) {
+  return sessionOverrides.get(key)?.tabPlacement ?? automationSessions.get(key)?.tabPlacement ?? "owned-container";
+}
+function usesOwnedContainer(key) {
+  return getTabPlacement(key) === "owned-container";
+}
 function makeAlarmName(leaseKey) {
   return `${LEASE_IDLE_ALARM_PREFIX}${encodeURIComponent(leaseKey)}`;
 }
@@ -1067,7 +1073,8 @@ function makeSession(key, session) {
     contextId: currentContextId,
     ownership,
     lifecycle: getLeaseLifecycle(key, session.kind),
-    windowRole: getWindowRole(key, ownership)
+    windowRole: getWindowRole(key, ownership),
+    tabPlacement: session.tabPlacement ?? getTabPlacement(key)
   };
 }
 function emptyRegistry() {
@@ -1130,6 +1137,7 @@ async function persistRuntimeState() {
       ownership: session.ownership,
       lifecycle: session.lifecycle,
       windowRole: session.windowRole,
+      tabPlacement: session.tabPlacement,
       idleDeadlineAt: session.idleDeadlineAt,
       updatedAt: Date.now()
     };
@@ -1165,6 +1173,24 @@ async function safeDetach(tabId) {
   } catch {
   }
 }
+async function removeExistingWindowTemporaryTab(tabId) {
+  await safeDetach(tabId);
+  evictTab(tabId);
+  try {
+    await chrome.tabs.remove(tabId);
+  } catch {
+    try {
+      await chrome.tabs.get(tabId);
+    } catch {
+      return;
+    }
+    throw new CommandFailure(
+      "temporary_tab_cleanup_failed",
+      `OpenCLI could not remove temporary tab ${tabId}.`,
+      "Close the temporary tab manually, then retry. OpenCLI did not touch any existing user tab."
+    );
+  }
+}
 async function removeLeaseSession(leaseKey) {
   const existing = automationSessions.get(leaseKey);
   if (existing?.idleTimer) clearTimeout(existing.idleTimer);
@@ -1193,8 +1219,16 @@ function resetWindowIdleTimer(leaseKey, remainingMs) {
     if ((activeCommandCounts.get(leaseKey) ?? 0) > 0) {
       return;
     }
-    await releaseLease(leaseKey, "idle timeout");
+    await releaseLeaseAfterIdle(leaseKey, "idle timeout");
   }, interval);
+}
+async function releaseLeaseAfterIdle(leaseKey, reason) {
+  try {
+    await releaseLease(leaseKey, reason);
+  } catch (err) {
+    console.warn(`[opencli] Idle lease cleanup failed (${leaseKey}, ${reason}): ${err instanceof Error ? err.message : String(err)}`);
+    resetWindowIdleTimer(leaseKey);
+  }
 }
 function getOwnedContainerGroupTitles(role) {
   return role === "automation" ? [] : [CONTAINER_TAB_GROUP_TITLE.interactive];
@@ -1496,6 +1530,62 @@ async function findReusableOwnedContainerTab(windowId, ownedGroupId) {
     return void 0;
   }
 }
+function isSafeExistingHostWindow(win, excludedWindowIds) {
+  return typeof win?.id === "number" && (win.type === void 0 || win.type === "normal") && win.incognito !== true && !excludedWindowIds.has(win.id);
+}
+function ownedContainerWindowIds() {
+  return new Set(
+    Object.values(ownedContainers).map((container) => container.windowId).filter((windowId) => typeof windowId === "number")
+  );
+}
+async function selectExistingNormalWindow(mode) {
+  const excludedWindowIds = ownedContainerWindowIds();
+  try {
+    const focused = await chrome.windows.getLastFocused({ windowTypes: ["normal"] });
+    if (isSafeExistingHostWindow(focused, excludedWindowIds)) {
+      await focusOwnedWindowIfRequested(focused.id, mode);
+      return focused.id;
+    }
+  } catch {
+  }
+  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] }).catch(() => []);
+  const candidates = [];
+  for (const win of windows) {
+    if (isSafeExistingHostWindow(win, excludedWindowIds)) candidates.push({ id: win.id, focused: win.focused });
+  }
+  const selected = candidates.sort((a, b) => {
+    if (!!a.focused !== !!b.focused) return a.focused ? -1 : 1;
+    return a.id - b.id;
+  })[0];
+  if (!selected) {
+    throw new CommandFailure(
+      "existing_window_required",
+      "No safe normal Chrome window is open for this Browser Bridge profile.",
+      "Open the target Chrome profile window, then retry. OpenCLI will not create a fallback window."
+    );
+  }
+  await focusOwnedWindowIfRequested(selected.id, mode);
+  return selected.id;
+}
+async function createExistingWindowTabLease(leaseKey, initialUrl) {
+  const targetUrl = initialUrl && isSafeNavigationUrl(initialUrl) ? initialUrl : BLANK_PAGE;
+  const mode = getWindowMode(leaseKey);
+  const windowId = await selectExistingNormalWindow(mode);
+  const tab = await chrome.tabs.create({ windowId, url: targetUrl, active: false });
+  const tabId = tab.id;
+  if (!tabId) throw new Error("Failed to create a temporary tab in the existing Chrome window");
+  setLeaseSession(leaseKey, {
+    session: getSessionFromKey(leaseKey),
+    surface: getSurfaceFromKey(leaseKey),
+    kind: "owned",
+    windowId,
+    owned: true,
+    preferredTabId: tabId,
+    tabPlacement: "existing-window"
+  });
+  resetWindowIdleTimer(leaseKey);
+  return { tabId, tab };
+}
 function initialTabIsAvailable(tabId) {
   if (tabId === void 0) return false;
   for (const session of automationSessions.values()) {
@@ -1507,6 +1597,7 @@ async function createOwnedTabLease(leaseKey, initialUrl) {
   return withLeaseMutation(() => createOwnedTabLeaseUnlocked(leaseKey, initialUrl));
 }
 async function createOwnedTabLeaseUnlocked(leaseKey, initialUrl) {
+  if (!usesOwnedContainer(leaseKey)) return createExistingWindowTabLease(leaseKey, initialUrl);
   const targetUrl = initialUrl && isSafeNavigationUrl(initialUrl) ? initialUrl : BLANK_PAGE;
   const role = getOwnedWindowRole(leaseKey);
   const { windowId, initialTabId } = await ensureOwnedContainerWindow(role, targetUrl, getWindowMode(leaseKey));
@@ -1560,6 +1651,7 @@ async function getAutomationWindow(leaseKey, initialUrl) {
     }
   }
   const role = getOwnedWindowRole(leaseKey);
+  if (!usesOwnedContainer(leaseKey)) return selectExistingNormalWindow(getWindowMode(leaseKey));
   return (await ensureOwnedContainerWindow(role, initialUrl, getWindowMode(leaseKey))).windowId;
 }
 chrome.windows.onRemoved.addListener(async (windowId) => {
@@ -1639,7 +1731,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     resetWindowIdleTimer(leaseKey);
     return;
   }
-  await releaseLease(leaseKey, "idle alarm");
+  await releaseLeaseAfterIdle(leaseKey, "idle alarm");
 });
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "getStatus") {
@@ -1678,8 +1770,24 @@ async function handleCommand(cmd) {
   const session = getSessionName(cmd.session);
   const surface = getCommandSurface(cmd);
   const leaseKey = getLeaseKey(session, surface);
+  const requestedTabPlacement = cmd.tabPlacement === "owned-container" || cmd.tabPlacement === "existing-window" ? cmd.tabPlacement : void 0;
+  const existingSession = automationSessions.get(leaseKey);
+  if (requestedTabPlacement && existingSession?.owned && existingSession.tabPlacement !== requestedTabPlacement) {
+    setSessionOverride(leaseKey, { tabPlacement: requestedTabPlacement });
+    try {
+      await releaseLease(leaseKey, "tab placement changed");
+    } catch (err) {
+      return errorResult(cmd.id, err);
+    }
+  }
   if (cmd.windowMode === "foreground" || cmd.windowMode === "background") {
     setSessionOverride(leaseKey, { windowMode: cmd.windowMode });
+  }
+  if (requestedTabPlacement) {
+    setSessionOverride(leaseKey, { tabPlacement: requestedTabPlacement });
+    if (requestedTabPlacement === "existing-window") {
+      await closeUnusedOwnedContainerWindow(getOwnedWindowRole(leaseKey));
+    }
   }
   if (surface === "adapter" && (cmd.siteSession === "persistent" || cmd.siteSession === "ephemeral")) {
     setSessionOverride(leaseKey, { lifecycle: cmd.siteSession });
@@ -1804,6 +1912,12 @@ async function resolveCommandTabId(cmd) {
 }
 async function resolveTab(tabId, leaseKey, initialUrl) {
   const existingSession = automationSessions.get(leaseKey);
+  if (existingSession?.owned && existingSession.tabPlacement !== getTabPlacement(leaseKey)) {
+    const requestedPlacement = getTabPlacement(leaseKey);
+    await releaseLease(leaseKey, "tab placement changed");
+    setSessionOverride(leaseKey, { tabPlacement: requestedPlacement });
+    return createOwnedTabLease(leaseKey, initialUrl);
+  }
   if (tabId !== void 0) {
     try {
       const tab = await chrome.tabs.get(tabId);
@@ -1875,7 +1989,7 @@ async function resolveTab(tabId, leaseKey, initialUrl) {
   }
   const windowId = await getAutomationWindow(leaseKey, initialUrl);
   const role = getOwnedWindowRole(leaseKey);
-  const group = existingSession?.owned ? await ensureOwnedContainerGroup(role, windowId, []) : null;
+  const group = existingSession?.owned && usesOwnedContainer(leaseKey) ? await ensureOwnedContainerGroup(role, windowId, []) : null;
   const scopedWindowId = group?.windowId ?? windowId;
   const reusableTabId = await findReusableOwnedContainerTab(scopedWindowId, existingSession?.owned ? group?.id ?? null : void 0);
   if (reusableTabId !== void 0) return { tabId: reusableTabId, tab: await chrome.tabs.get(reusableTabId) };
@@ -1893,7 +2007,7 @@ async function resolveTab(tabId, leaseKey, initialUrl) {
   }
   const newTab = await chrome.tabs.create({ windowId: scopedWindowId, url: BLANK_PAGE, active: true });
   if (!newTab.id) throw new Error("Failed to create tab in automation container");
-  await ensureOwnedContainerGroup(role, scopedWindowId, [newTab.id]);
+  if (usesOwnedContainer(leaseKey)) await ensureOwnedContainerGroup(role, scopedWindowId, [newTab.id]);
   return { tabId: newTab.id, tab: await chrome.tabs.get(newTab.id) };
 }
 async function pageScopedResult(id, tabId, data) {
@@ -2095,11 +2209,25 @@ async function handleTabs(cmd, leaseKey) {
         const created = await createOwnedTabLease(leaseKey, cmd.url);
         return pageScopedResult(cmd.id, created.tabId, { url: created.tab?.url });
       }
+      const previousTemporaryTabId = session?.tabPlacement === "existing-window" ? session.preferredTabId : null;
       const windowId = await getAutomationWindow(leaseKey);
-      let tab = await chrome.tabs.create({ windowId, url: cmd.url ?? BLANK_PAGE, active: true });
+      let tab = await chrome.tabs.create({
+        windowId,
+        url: cmd.url ?? BLANK_PAGE,
+        active: usesOwnedContainer(leaseKey)
+      });
       const tabId = tab.id;
       if (!tabId) return { id: cmd.id, ok: false, error: "Failed to create tab" };
-      const group = await ensureOwnedContainerGroup(getOwnedWindowRole(leaseKey), windowId, [tabId]);
+      if (previousTemporaryTabId !== null && previousTemporaryTabId !== tabId) {
+        try {
+          await removeExistingWindowTemporaryTab(previousTemporaryTabId);
+        } catch (error) {
+          await chrome.tabs.remove(tabId).catch(() => {
+          });
+          throw error;
+        }
+      }
+      const group = usesOwnedContainer(leaseKey) ? await ensureOwnedContainerGroup(getOwnedWindowRole(leaseKey), windowId, [tabId]) : null;
       const sessionWindowId = group?.windowId ?? tab.windowId;
       if (tab.windowId !== sessionWindowId) tab = await chrome.tabs.get(tabId);
       setLeaseSession(leaseKey, {
@@ -2108,7 +2236,8 @@ async function handleTabs(cmd, leaseKey) {
         kind: "owned",
         windowId: sessionWindowId,
         owned: true,
-        preferredTabId: tabId
+        preferredTabId: tabId,
+        tabPlacement: getTabPlacement(leaseKey)
       });
       resetWindowIdleTimer(leaseKey);
       return pageScopedResult(cmd.id, tabId, { url: tab.url });
@@ -2147,6 +2276,15 @@ async function handleTabs(cmd, leaseKey) {
         if (tab.windowId !== session.windowId) {
           return { id: cmd.id, ok: false, error: `Page is not in the automation container` };
         }
+        if (session.tabPlacement === "existing-window" && session.preferredTabId !== tabId2) {
+          return {
+            id: cmd.id,
+            ok: false,
+            errorCode: "tab_not_owned",
+            error: "The requested page is not the temporary tab owned by this OpenCLI session.",
+            errorHint: "Only the current OpenCLI temporary tab can be closed in existing-window mode."
+          };
+        }
         const closedPage2 = await resolveTargetId(tabId2).catch(() => void 0);
         if (session.preferredTabId === tabId2) {
           await releaseLease(leaseKey, "tab close");
@@ -2182,6 +2320,15 @@ async function handleTabs(cmd, leaseKey) {
         }
         if (!session2 || tab.windowId !== session2.windowId) {
           return { id: cmd.id, ok: false, error: `Page is not in the automation container` };
+        }
+        if (session2.tabPlacement === "existing-window" && session2.preferredTabId !== cmdTabId) {
+          return {
+            id: cmd.id,
+            ok: false,
+            errorCode: "tab_not_owned",
+            error: "The requested page is not the temporary tab owned by this OpenCLI session.",
+            errorHint: "Only the current OpenCLI temporary tab can be selected in existing-window mode."
+          };
         }
         await chrome.tabs.update(cmdTabId, { active: true });
         preferOwnedTab(leaseKey, cmdTabId);
@@ -2349,6 +2496,24 @@ async function handleWaitDownload(cmd) {
     return errorResult(cmd.id, err);
   }
 }
+async function closeUnusedOwnedContainerWindow(role) {
+  const container = ownedContainers[role];
+  const windowId = container.windowId;
+  if (windowId === null) return;
+  const hasLiveLease = [...automationSessions.values()].some(
+    (session) => session.owned && session.tabPlacement === "owned-container" && session.windowId === windowId
+  );
+  if (hasLiveLease) return;
+  try {
+    const tabs = await chrome.tabs.query({ windowId });
+    if (tabs.some((tab) => isSafeNavigationUrl(tab.url ?? ""))) return;
+    await chrome.windows.remove(windowId);
+  } catch {
+  }
+  container.windowId = null;
+  container.groupId = null;
+  await persistRuntimeState();
+}
 async function releaseLease(leaseKey, reason = "released") {
   const session = automationSessions.get(leaseKey);
   if (!session) {
@@ -2359,28 +2524,35 @@ async function releaseLease(leaseKey, reason = "released") {
   }
   if (session.idleTimer) clearTimeout(session.idleTimer);
   scheduleIdleAlarm(leaseKey, IDLE_TIMEOUT_NONE);
+  const requestedPlacement = sessionOverrides.get(leaseKey)?.tabPlacement ?? session.tabPlacement;
+  const removeOwnedTab = session.tabPlacement === "existing-window" || requestedPlacement === "existing-window" || reason === "tab placement changed";
   if (session.owned) {
     const tabId = session.preferredTabId;
     if (tabId !== null) {
       const hasOtherOwnedLease = [...automationSessions.entries()].some(
         ([otherLease, otherSession]) => otherLease !== leaseKey && otherSession.owned && otherSession.windowId === session.windowId && otherSession.preferredTabId !== null
       );
-      await safeDetach(tabId);
-      evictTab(tabId);
-      if (hasOtherOwnedLease) {
-        await chrome.tabs.remove(tabId).catch(() => {
-        });
-        console.log(`[opencli] Released owned tab lease ${tabId} (session=${session.session}, surface=${session.surface}, ${reason})`);
+      if (removeOwnedTab) {
+        await removeExistingWindowTemporaryTab(tabId);
+        console.log(`[opencli] Released existing-window tab lease ${tabId} (session=${session.session}, surface=${session.surface}, ${reason})`);
       } else {
-        try {
-          const tab = await chrome.tabs.update(tabId, { url: BLANK_PAGE, active: true });
-          const group = await ensureOwnedContainerGroup(getOwnedWindowRole(leaseKey), session.windowId, [tab.id ?? tabId]);
-          if (group) session.windowId = group.windowId;
-          console.log(`[opencli] Released owned tab lease ${tabId} as reusable placeholder (session=${session.session}, surface=${session.surface}, ${reason})`);
-        } catch {
+        await safeDetach(tabId);
+        evictTab(tabId);
+        if (hasOtherOwnedLease) {
           await chrome.tabs.remove(tabId).catch(() => {
           });
           console.log(`[opencli] Released owned tab lease ${tabId} (session=${session.session}, surface=${session.surface}, ${reason})`);
+        } else {
+          try {
+            const tab = await chrome.tabs.update(tabId, { url: BLANK_PAGE, active: true });
+            const group = session.tabPlacement === "owned-container" ? await ensureOwnedContainerGroup(getOwnedWindowRole(leaseKey), session.windowId, [tab.id ?? tabId]) : null;
+            if (group) session.windowId = group.windowId;
+            console.log(`[opencli] Released owned tab lease ${tabId} as reusable placeholder (session=${session.session}, surface=${session.surface}, ${reason})`);
+          } catch {
+            await chrome.tabs.remove(tabId).catch(() => {
+            });
+            console.log(`[opencli] Released owned tab lease ${tabId} (session=${session.session}, surface=${session.surface}, ${reason})`);
+          }
         }
       }
     } else {
@@ -2425,7 +2597,8 @@ async function reconcileTargetLeaseRegistry() {
         kind: stored.kind === "bound" || stored.owned === false ? "bound" : "owned",
         windowId: tab.windowId,
         owned: stored.owned,
-        preferredTabId: tabId
+        preferredTabId: tabId,
+        tabPlacement: stored.tabPlacement === "existing-window" ? "existing-window" : "owned-container"
       });
       const timeout = getIdleTimeout(leaseKey);
       automationSessions.set(leaseKey, {
@@ -2433,7 +2606,7 @@ async function reconcileTargetLeaseRegistry() {
         idleTimer: null,
         idleDeadlineAt: stored.idleDeadlineAt
       });
-      if (session.owned) {
+      if (session.owned && session.tabPlacement === "owned-container") {
         const role = getOwnedWindowRole(leaseKey);
         if (ownedContainers[role].windowId === null) ownedContainers[role].windowId = tab.windowId;
         const group = await ensureOwnedContainerGroup(role, tab.windowId, [tabId]);

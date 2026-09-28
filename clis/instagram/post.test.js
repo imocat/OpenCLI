@@ -933,7 +933,7 @@ describe('instagram post registration', () => {
             media: imagePath,
             content: 'preview missing',
         })).rejects.toThrow('Instagram image preview did not appear after upload');
-        expect(page.screenshot).toHaveBeenCalledWith({ path: '/tmp/instagram_post_preview_debug.png' });
+        expect(page.screenshot).toHaveBeenCalledWith({ path: path.join(os.tmpdir(), 'instagram_post_preview_debug.png') });
     });
     it('fails clearly when Instagram shows an upload-stage error dialog', async () => {
         const imagePath = createTempImage('upload-error.jpg');

@@ -9,7 +9,6 @@
  */
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
@@ -19,9 +18,10 @@ import { log } from './logger.js';
 import type { ManifestEntry } from './manifest-types.js';
 import { findPackageRoot, getCliManifestPath } from './package-paths.js';
 import { isSiteEnabled } from './site-policy.js';
+import { getOpenCliConfigDir } from './paths.js';
 
-/** User runtime directory: ~/.opencli */
-export const USER_OPENCLI_DIR = path.join(os.homedir(), '.opencli');
+/** User runtime directory: OPENCLI_CONFIG_DIR or ~/.opencli */
+export const USER_OPENCLI_DIR = getOpenCliConfigDir();
 /** User CLIs directory: ~/.opencli/clis */
 export const USER_CLIS_DIR = path.join(USER_OPENCLI_DIR, 'clis');
 /** Plugins directory: ~/.opencli/plugins/ */
@@ -200,13 +200,19 @@ async function discoverClisFromFs(dir: string): Promise<void> {
  * Each subdirectory is treated as a plugin (site = directory name).
  * Files inside are scanned flat (no nested site subdirs).
  */
-export async function discoverPlugins(): Promise<void> {
-  try { await fs.promises.access(PLUGINS_DIR); } catch { return; }
-  const entries = (await fs.promises.readdir(PLUGINS_DIR, { withFileTypes: true }))
+export function bundledPluginDirectories(environment: NodeJS.ProcessEnv = process.env): string[] {
+  const configured = environment.OPENCLI_BUNDLED_PLUGINS_DIR?.trim();
+  if (!configured) return [];
+  return [...new Set(configured.split(path.delimiter).map(value => value.trim()).filter(path.isAbsolute))];
+}
+
+async function discoverPluginRoot(root: string): Promise<void> {
+  try { await fs.promises.access(root); } catch { return; }
+  const entries = (await fs.promises.readdir(root, { withFileTypes: true }))
     .sort((a, b) => a.name.localeCompare(b.name));
   const discoverable: Array<{ entry: fs.Dirent; pluginDir: string }> = [];
   for (const entry of entries) {
-    const pluginDir = path.join(PLUGINS_DIR, entry.name);
+    const pluginDir = path.join(root, entry.name);
     if (isSiteEnabled(entry.name) && await isDiscoverablePluginDir(entry, pluginDir)) {
       discoverable.push({ entry, pluginDir });
     }
@@ -217,6 +223,13 @@ export async function discoverPlugins(): Promise<void> {
   await Promise.all(discoverable.map(async ({ entry, pluginDir }) => {
     await discoverPluginDir(pluginDir, entry.name);
   }));
+}
+
+export async function discoverPlugins(): Promise<void> {
+  const roots = [...bundledPluginDirectories(), PLUGINS_DIR];
+  for (const root of [...new Set(roots.map(value => path.resolve(value)))]) {
+    await discoverPluginRoot(root);
+  }
 }
 
 /**

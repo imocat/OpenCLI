@@ -51,7 +51,7 @@ export function defaultSitePolicyPath(
   homeDir: string = os.homedir(),
 ): string {
   const override = env.OPENCLI_POLICY_FILE?.trim();
-  return override || path.join(homeDir, '.opencli', 'policy.yaml');
+  return override || path.join(env.OPENCLI_CONFIG_DIR?.trim() || path.join(homeDir, '.opencli'), 'policy.yaml');
 }
 
 function asPolicyDocument(value: unknown, source: string): PolicyDocument {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { discoverClis, discoverPlugins, ensureUserCliCompatShims, ensureUserAdapters, PLUGINS_DIR } from './discovery.js';
+import { bundledPluginDirectories, discoverClis, discoverPlugins, ensureUserCliCompatShims, ensureUserAdapters, PLUGINS_DIR } from './discovery.js';
 import { executeCommand } from './execution.js';
 import { getRegistry, cli, Strategy } from './registry.js';
 import { clearAllHooks, onAfterExecute } from './hooks.js';
@@ -409,6 +409,27 @@ version: 1
   it('handles non-existent plugins directory gracefully', async () => {
     // discoverPlugins should not throw if ~/.opencli/plugins/ does not exist
     await expect(discoverPlugins()).resolves.not.toThrow();
+  });
+
+  it('discovers packaged plugins from an explicit absolute bundle directory', async () => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'opencli-bundled-plugins-'));
+    const pluginDir = path.join(root, '__test-bundled-plugin__');
+    const marker = `__opencliBundledPlugin${Date.now()}`;
+    await fs.promises.mkdir(pluginDir, { recursive: true });
+    await fs.promises.writeFile(
+      path.join(pluginDir, 'commands.js'),
+      `globalThis[${JSON.stringify(marker)}] = true; // cli(\n`,
+    );
+    vi.stubEnv('OPENCLI_BUNDLED_PLUGINS_DIR', root);
+    try {
+      expect(bundledPluginDirectories()).toEqual([root]);
+      await discoverPlugins();
+      expect((globalThis as Record<string, unknown>)[marker]).toBe(true);
+    } finally {
+      delete (globalThis as Record<string, unknown>)[marker];
+      vi.unstubAllEnvs();
+      await fs.promises.rm(root, { recursive: true, force: true });
+    }
   });
 
   it('ignores YAML files in symlinked plugin directories (YAML format removed)', async () => {

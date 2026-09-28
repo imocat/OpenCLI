@@ -9,7 +9,9 @@ import {
   commandResultUnknownMessage,
   getResponseCorsHeaders,
   resolveProfileRoute,
+  supportsExistingWindowPlacement,
 } from './daemon-utils.js';
+import { isBrowserTabPlacement } from './browser/tab-placement.js';
 
 describe('getResponseCorsHeaders', () => {
   it('allows the Browser Bridge extension origin to read /ping', () => {
@@ -33,6 +35,22 @@ describe('getResponseCorsHeaders', () => {
 });
 
 describe('daemon command dispatch', () => {
+  it('accepts only the two declared tab placement values', () => {
+    expect(isBrowserTabPlacement('owned-container')).toBe(true);
+    expect(isBrowserTabPlacement('existing-window')).toBe(true);
+    expect(isBrowserTabPlacement('new-window')).toBe(false);
+    expect(isBrowserTabPlacement(null)).toBe(false);
+  });
+
+  it('requires the extension version that implements existing-window placement', () => {
+    expect(supportsExistingWindowPlacement('1.0.24')).toBe(false);
+    expect(supportsExistingWindowPlacement(undefined)).toBe(false);
+    expect(supportsExistingWindowPlacement('1.0.25')).toBe(true);
+    expect(supportsExistingWindowPlacement('1.0.25.1')).toBe(true);
+    expect(supportsExistingWindowPlacement('1.0.24.99')).toBe(false);
+    expect(supportsExistingWindowPlacement('1.1.0')).toBe(true);
+  });
+
   it('uses a distinct command_result_unknown contract for ambiguous dispatched commands', () => {
     expect(COMMAND_RESULT_UNKNOWN_CODE).toBe('command_result_unknown');
     expect(commandResultUnknownMessage('navigate')).toContain('navigate command was dispatched');

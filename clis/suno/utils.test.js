@@ -52,9 +52,9 @@ describe('suno utils — parseFormats', () => {
 });
 
 describe('suno utils — resolveSunoOutputDir', () => {
-    it('falls back to ~/Music/suno when no path is given', () => {
-        expect(resolveSunoOutputDir()).toBe(path.join(os.homedir(), 'Music', 'suno'));
-        expect(resolveSunoOutputDir('')).toBe(path.join(os.homedir(), 'Music', 'suno'));
+    it('falls back to the managed temporary directory when no path is given', () => {
+        expect(resolveSunoOutputDir()).toBe(path.join(os.tmpdir(), 'opencli-suno'));
+        expect(resolveSunoOutputDir('')).toBe(path.join(os.tmpdir(), 'opencli-suno'));
     });
 
     it('expands ~ and ~/-prefixed relative paths to the home directory', () => {

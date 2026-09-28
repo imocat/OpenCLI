@@ -5,11 +5,13 @@
  */
 import * as fs from 'node:fs';
 import { cli, Strategy } from '@jackwener/opencli/registry';
+import { openCliTempPath } from './temp-path.js';
 /**
  * Factory: capture DOM HTML + accessibility snapshot.
  */
 export function makeScreenshotCommand(site, displayName, extra = {}) {
     const label = displayName ?? site;
+    const defaultOutputPath = openCliTempPath(`${site}-snapshot.txt`);
     return cli({
         ...extra,
         site,
@@ -20,11 +22,11 @@ export function makeScreenshotCommand(site, displayName, extra = {}) {
         strategy: Strategy.UI,
         browser: true,
         args: [
-            { name: 'output', required: false, help: `Output file path (default: /tmp/${site}-snapshot.txt)` },
+            { name: 'output', required: false, help: `Output file path (default: ${defaultOutputPath})` },
         ],
         columns: ['Status', 'File'],
         func: async (page, kwargs) => {
-            const outputPath = kwargs.output || `/tmp/${site}-snapshot.txt`;
+            const outputPath = kwargs.output || defaultOutputPath;
             const snap = await page.snapshot({ compact: true });
             const html = await page.evaluate('document.documentElement.outerHTML');
             const htmlPath = outputPath.replace(/\.\w+$/, '') + '-dom.html';
@@ -87,6 +89,8 @@ export function makeNewCommand(site, displayName, extra = {}) {
  * Factory: dump DOM + snapshot for reverse-engineering.
  */
 export function makeDumpCommand(site) {
+    const domPath = openCliTempPath(`${site}-dom.html`);
+    const snapshotPath = openCliTempPath(`${site}-snapshot.json`);
     return cli({
         site,
         name: 'dump',
@@ -98,13 +102,13 @@ export function makeDumpCommand(site) {
         columns: ['action', 'files'],
         func: async (page) => {
             const dom = await page.evaluate('document.body.innerHTML');
-            fs.writeFileSync(`/tmp/${site}-dom.html`, dom);
+            fs.writeFileSync(domPath, dom);
             const snap = await page.snapshot({ interactive: false });
-            fs.writeFileSync(`/tmp/${site}-snapshot.json`, JSON.stringify(snap, null, 2));
+            fs.writeFileSync(snapshotPath, JSON.stringify(snap, null, 2));
             return [
                 {
                     action: 'Dom extraction finished',
-                    files: `/tmp/${site}-dom.html, /tmp/${site}-snapshot.json`,
+                    files: `${domPath}, ${snapshotPath}`,
                 },
             ];
         },

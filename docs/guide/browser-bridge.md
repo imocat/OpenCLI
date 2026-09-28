@@ -68,6 +68,8 @@ Use `opencli browser <session> bind` when you want to attach OpenCLI to a Chrome
 
 The `OpenCLI Browser` and `OpenCLI Adapter` tab groups are extension-managed automation containers; avoid putting your own long-lived tabs in them or renaming them.
 
+To place temporary automation tabs in an already-open normal window of the selected Chrome profile, set `OPENCLI_TAB_PLACEMENT=existing-window`. This strict mode requires Browser Bridge v1.0.25 or newer, excludes OpenCLI-owned container windows, and fails clearly instead of opening a fallback window. The temporary tab is removed when its lease ends. The default remains `owned-container` for backward compatibility.
+
 ## How It Works
 
 ```

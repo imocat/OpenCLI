@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import { cli, Strategy } from '@jackwener/opencli/registry';
+import { openCliTempPath } from '../_shared/temp-path.js';
 function makeExportCommand(site, readSelector) {
+    const defaultOutputPath = openCliTempPath(`${site}-export.md`);
     return cli({
         site,
         name: 'export',
@@ -10,11 +12,11 @@ function makeExportCommand(site, readSelector) {
         strategy: Strategy.UI,
         browser: true,
         args: [
-            { name: 'output', required: false, help: `Output file (default: /tmp/${site}-export.md)` },
+            { name: 'output', required: false, help: `Output file (default: ${defaultOutputPath})` },
         ],
         columns: ['Status', 'File', 'Messages'],
         func: async (page, kwargs) => {
-            const outputPath = kwargs.output || `/tmp/${site}-export.md`;
+            const outputPath = kwargs.output || defaultOutputPath;
             const md = await page.evaluate(`
         (function() {
           const selectors = ${JSON.stringify(readSelector)}.split(',');

@@ -27,14 +27,17 @@ import { EXIT_CODES } from './errors.js';
 import { log } from './logger.js';
 import { PKG_VERSION } from './version.js';
 import { DEFAULT_CONTEXT_ID } from './browser/profile.js';
+import { isBrowserTabPlacement } from './browser/tab-placement.js';
 import { recordExtensionVersion } from './update-check.js';
 import {
+  MIN_EXISTING_WINDOW_EXTENSION_VERSION,
   PROFILE_DISCONNECTED_HINT,
   buildCommandDispatchFailure,
   buildCommandTimeoutFailure,
   buildExtensionDisconnectFailure,
   getResponseCorsHeaders,
   resolveProfileRoute,
+  supportsExistingWindowPlacement,
 } from './daemon-utils.js';
 import {
   SessionLeaseRegistry,
@@ -354,6 +357,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         jsonResponse(res, 400, { ok: false, error: 'Missing command id' });
         return;
       }
+      if (body.tabPlacement !== undefined && !isBrowserTabPlacement(body.tabPlacement)) {
+        jsonResponse(res, 400, {
+          id: body.id,
+          ok: false,
+          errorCode: 'invalid_tab_placement',
+          error: 'tabPlacement must be one of: owned-container, existing-window.',
+        });
+        return;
+      }
 
       // ─── Session write lease: explicit release ───────────────────────
       // Daemon-local, never dispatched to the extension. Keyed by runId alone:
@@ -376,6 +388,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           errorCode: route.errorCode,
           error: route.error,
           ...(route.errorHint ? { errorHint: route.errorHint } : {}),
+        });
+        return;
+      }
+
+      if (body.tabPlacement === 'existing-window'
+        && !supportsExistingWindowPlacement(route.connection.extensionVersion)) {
+        jsonResponse(res, 409, {
+          id: body.id,
+          ok: false,
+          errorCode: 'extension_upgrade_required',
+          error: `The connected Browser Bridge extension does not support existing-window placement.`,
+          errorHint: `Upgrade the OpenCLI Browser Bridge extension to v${MIN_EXISTING_WINDOW_EXTENSION_VERSION} or newer.`,
         });
         return;
       }

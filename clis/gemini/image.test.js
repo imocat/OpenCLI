@@ -44,7 +44,7 @@ describe('gemini image output directory', () => {
 
     it('resolves a relative path against the working directory', () => {
         expect(resolveOutputDir('out/images')).toBe(path.resolve('out/images'));
-        expect(resolveOutputDir('')).toBe(path.join(os.homedir(), 'tmp', 'gemini-images'));
+        expect(resolveOutputDir('')).toBe(path.join(os.tmpdir(), 'opencli-gemini-images'));
     });
 });
 

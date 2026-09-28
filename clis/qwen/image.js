@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { saveBase64ToFile } from '@jackwener/opencli/utils';
 import { ArgumentError, CommandExecutionError, EmptyResultError, TimeoutError } from '@jackwener/opencli/errors';
+import { openCliTempPath } from '../_shared/temp-path.js';
 import {
     QIANWEN_DOMAIN,
     authRequired,
@@ -16,6 +17,7 @@ import {
     startNewChat,
 } from './utils.js';
 
+const DEFAULT_OUTPUT_DIR = openCliTempPath('opencli-qwen-images');
 function displayPath(filePath) {
     const home = os.homedir();
     return filePath.startsWith(home) ? `~${filePath.slice(home.length)}` : filePath;
@@ -104,7 +106,7 @@ cli({
     defaultFormat: 'plain',
     args: [
         { name: 'prompt', required: true, positional: true, help: 'Image prompt to send' },
-        { name: 'op', default: '~/Pictures/qianwen', help: 'Output directory' },
+        { name: 'op', default: DEFAULT_OUTPUT_DIR, help: `Output directory (default: ${DEFAULT_OUTPUT_DIR})` },
         { name: 'new', type: 'boolean', default: true, help: 'Start a new chat before generating (default: true)' },
         { name: 'sd', type: 'boolean', default: false, help: 'Skip download; only show the Qianwen link' },
         { name: 'timeout', type: 'int', default: 180, help: 'Max seconds to wait for the image response' },
@@ -113,7 +115,7 @@ cli({
     func: async (page, kwargs) => {
         const prompt = String(kwargs.prompt || '').trim();
         if (!prompt) throw new ArgumentError('prompt is required');
-        const outputDir = String(kwargs.op || '~/Pictures/qianwen').replace(/^~\//, `${os.homedir()}/`);
+        const outputDir = String(kwargs.op || DEFAULT_OUTPUT_DIR).replace(/^~\//, `${os.homedir()}/`);
         const startFresh = normalizeBooleanFlag(kwargs.new, true);
         const skipDownload = normalizeBooleanFlag(kwargs.sd, false);
         const timeout = Number(kwargs.timeout ?? 180);

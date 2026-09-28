@@ -1,5 +1,8 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import * as fs from 'node:fs';
+import { openCliTempPath } from '../_shared/temp-path.js';
+const HTML_OUTPUT_PATH = openCliTempPath('antigravity-dom.html');
+const SNAPSHOT_OUTPUT_PATH = openCliTempPath('antigravity-snapshot.json');
 export const dumpCommand = cli({
     site: 'antigravity',
     name: 'dump',
@@ -13,17 +16,17 @@ export const dumpCommand = cli({
     func: async (page) => {
         // Extract HTML
         const html = await page.evaluate('document.body.innerHTML');
-        fs.writeFileSync('/tmp/antigravity-dom.html', html);
+        fs.writeFileSync(HTML_OUTPUT_PATH, html);
         // Extract Snapshot
         let snapFile = '';
         try {
             const snap = await page.snapshot({ raw: true });
-            snapFile = '/tmp/antigravity-snapshot.json';
+            snapFile = SNAPSHOT_OUTPUT_PATH;
             fs.writeFileSync(snapFile, JSON.stringify(snap, null, 2));
         }
         catch (e) {
             snapFile = 'Failed';
         }
-        return [{ htmlFile: '/tmp/antigravity-dom.html', snapFile }];
+        return [{ htmlFile: HTML_OUTPUT_PATH, snapFile }];
     },
 });

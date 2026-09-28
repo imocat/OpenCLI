@@ -3,6 +3,7 @@ import type { IPage } from './types.js';
 import { TimeoutError } from './errors.js';
 import { isElectronApp } from './electron-apps.js';
 import { DEFAULT_BROWSER_COMMAND_TIMEOUT, DEFAULT_BROWSER_CONNECT_TIMEOUT } from './browser/config.js';
+import type { BrowserTabPlacement } from './browser/tab-placement.js';
 
 export { DEFAULT_BROWSER_COMMAND_TIMEOUT, DEFAULT_BROWSER_CONNECT_TIMEOUT };
 
@@ -19,6 +20,7 @@ export function getBrowserFactory(site?: string): new () => IBrowserFactory {
 
 export type BrowserWindowMode = 'foreground' | 'background';
 export type BrowserSurface = 'browser' | 'adapter';
+export type { BrowserTabPlacement };
 
 /**
  * Timeout with seconds unit. Used for high-level command timeouts.
@@ -56,14 +58,14 @@ export function withTimeoutMs<T>(
 
 /** Interface for browser factory (BrowserBridge or test mocks) */
 export interface IBrowserFactory {
-  connect(opts?: { timeout?: number; session?: string; cdpEndpoint?: string; contextId?: string; preferredContextId?: string; idleTimeout?: number; windowMode?: BrowserWindowMode; surface?: BrowserSurface; siteSession?: 'ephemeral' | 'persistent' }): Promise<IPage>;
+  connect(opts?: { timeout?: number; session?: string; cdpEndpoint?: string; contextId?: string; preferredContextId?: string; idleTimeout?: number; windowMode?: BrowserWindowMode; tabPlacement?: BrowserTabPlacement; surface?: BrowserSurface; siteSession?: 'ephemeral' | 'persistent' }): Promise<IPage>;
   close(): Promise<void>;
 }
 
 export async function browserSession<T>(
   BrowserFactory: new () => IBrowserFactory,
   fn: (page: IPage) => Promise<T>,
-  opts: { session?: string; cdpEndpoint?: string; contextId?: string; preferredContextId?: string; idleTimeout?: number; windowMode?: BrowserWindowMode; surface?: BrowserSurface; siteSession?: 'ephemeral' | 'persistent' } = {},
+  opts: { session?: string; cdpEndpoint?: string; contextId?: string; preferredContextId?: string; idleTimeout?: number; windowMode?: BrowserWindowMode; tabPlacement?: BrowserTabPlacement; surface?: BrowserSurface; siteSession?: 'ephemeral' | 'persistent' } = {},
 ): Promise<T> {
   const browser = new BrowserFactory();
   try {
@@ -75,6 +77,7 @@ export async function browserSession<T>(
       preferredContextId: opts.preferredContextId,
       idleTimeout: opts.idleTimeout,
       windowMode: opts.windowMode,
+      tabPlacement: opts.tabPlacement,
       surface: opts.surface,
       siteSession: opts.siteSession,
     });

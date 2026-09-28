@@ -6,6 +6,22 @@ export const COMMAND_RESULT_UNKNOWN_HINT =
 export const PROFILE_DISCONNECTED_HINT =
   'Open that Chrome profile and make sure the OpenCLI extension is enabled, or choose another profile with opencli profile use <name>.';
 
+export const MIN_EXISTING_WINDOW_EXTENSION_VERSION = '1.0.25';
+
+export function supportsExistingWindowPlacement(version?: string | null): boolean {
+  if (!version) return false;
+  const match = version.trim().match(/^v?(\d+(?:\.\d+){2,3})(?:[-+].*)?$/);
+  if (!match) return false;
+  const actual = match[1].split('.').map(Number);
+  const required = MIN_EXISTING_WINDOW_EXTENSION_VERSION.split('.').map(Number);
+  for (let index = 0; index < Math.max(actual.length, required.length); index += 1) {
+    const actualPart = actual[index] ?? 0;
+    const requiredPart = required[index] ?? 0;
+    if (actualPart !== requiredPart) return actualPart > requiredPart;
+  }
+  return true;
+}
+
 export type DaemonFailureContract = {
   message: string;
   errorCode: string;

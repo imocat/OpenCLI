@@ -371,7 +371,7 @@ describe('xiaohongshu publish', () => {
             draft: false,
         })).rejects.toThrow('Image injection failed: No file input found on page');
         expect(setFileInput).not.toHaveBeenCalled();
-        expect(page.screenshot).toHaveBeenCalledWith({ path: '/tmp/xhs_publish_upload_debug.png' });
+        expect(page.screenshot).toHaveBeenCalledWith({ path: path.join(os.tmpdir(), 'xhs_publish_upload_debug.png') });
     });
     it('selects the image-text tab and publishes successfully', async () => {
         const cmd = getRegistry().get('xiaohongshu/publish');
@@ -478,7 +478,7 @@ describe('xiaohongshu publish', () => {
             topics: '',
             draft: false,
         })).rejects.toThrow('Still on the video publish page after trying to select 图文');
-        expect(page.screenshot).toHaveBeenCalledWith({ path: '/tmp/xhs_publish_tab_debug.png' });
+        expect(page.screenshot).toHaveBeenCalledWith({ path: path.join(os.tmpdir(), 'xhs_publish_tab_debug.png') });
     });
     it('waits for the image-text surface to appear after clicking the tab', async () => {
         const cmd = getRegistry().get('xiaohongshu/publish');

@@ -66,6 +66,8 @@ opencli browser my-session close
 
 `OpenCLI Browser` 和 `OpenCLI Adapter` tab group 是扩展管理的自动化容器；请不要把自己的长期 tab 放进去，也不要重命名。
 
+若要把临时自动化标签页放入所选 Chrome profile 已打开的普通窗口，可设置 `OPENCLI_TAB_PLACEMENT=existing-window`。该严格模式要求 Browser Bridge v1.0.25 或更高版本，会排除 OpenCLI 自己管理的容器窗口；找不到安全窗口时会明确失败，不会兜底再开一个窗口。lease 结束后会删除临时标签页。默认值仍为 `owned-container`，以保持向后兼容。
+
 ## Daemon 生命周期
 
 Daemon 在首次运行浏览器命令时自动启动，之后保持常驻运行。

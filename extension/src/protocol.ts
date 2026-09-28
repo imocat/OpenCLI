@@ -71,6 +71,8 @@ export interface Command {
   cdpParams?: Record<string, unknown>;
   /** Window foreground/background policy for owned Browser Bridge containers. */
   windowMode?: 'foreground' | 'background';
+  /** Placement policy for tabs owned by Browser Bridge sessions. */
+  tabPlacement?: 'owned-container' | 'existing-window';
   /** Custom idle timeout in seconds for this session. Overrides the default. */
   idleTimeout?: number;
   /** Frame index for cross-frame operations (0-based, from 'frames' action) */

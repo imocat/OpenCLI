@@ -164,6 +164,7 @@ When the site you need is not yet covered, use the `opencli-adapter-author` skil
 | `OPENCLI_POLICY_FILE` | `~/.opencli/policy.yaml` | Override the adapter site-policy file used to enable or disable website and app adapters |
 | `OPENCLI_PROFILE` | — | Browser Bridge profile alias/contextId to use when multiple Chrome profiles are connected |
 | `OPENCLI_WINDOW` | command default | Set to `foreground` or `background` to override Browser Bridge window placement. Browser-backed commands also accept `--window <foreground\|background>`. |
+| `OPENCLI_TAB_PLACEMENT` | `owned-container` | Set to `existing-window` to create the temporary automation tab inside an already-open normal window in the selected Chrome profile. This strict mode never creates a fallback window and requires Browser Bridge v1.0.25+. |
 | `OPENCLI_SITE_SESSION` | adapter default | Set to `ephemeral` or `persistent` to override `siteSession` metadata for browser-backed adapter commands. `ephemeral` closes the one-shot automation window when the command finishes; `persistent` reuses the site's session. Per-command `--site-session` takes precedence. |
 | `OPENCLI_BROWSER_CONNECT_TIMEOUT` | `45` | Seconds to wait for browser connection |
 | `OPENCLI_BROWSER_COMMAND_TIMEOUT` | `60` | Seconds to wait for a single browser command |

@@ -16,10 +16,10 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { PKG_VERSION } from './version.js';
+import { getOpenCliCacheDir } from './paths.js';
 
-const CACHE_DIR = path.join(os.homedir(), '.opencli');
+const CACHE_DIR = getOpenCliCacheDir();
 const CACHE_FILE = path.join(CACHE_DIR, 'update-check.json');
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const EXTENSION_STALE_MS = 7 * 24 * 60 * 60 * 1000; // 7d

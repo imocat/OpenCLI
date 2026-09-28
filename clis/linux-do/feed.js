@@ -32,7 +32,8 @@ function getHomeDir() {
     return process.env.HOME || process.env.USERPROFILE || os.homedir();
 }
 function getLinuxDoCacheDir() {
-    return testCacheDirOverride ?? path.join(getHomeDir(), '.opencli', 'cache', 'linux-do');
+    const cacheDir = process.env.OPENCLI_CACHE_DIR || path.join(getHomeDir(), '.opencli', 'cache');
+    return testCacheDirOverride ?? path.join(cacheDir, 'linux-do');
 }
 function getMetadataCachePath(name) {
     return path.join(getLinuxDoCacheDir(), `${name}.json`);

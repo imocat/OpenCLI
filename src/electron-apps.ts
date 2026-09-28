@@ -7,8 +7,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import yaml from 'js-yaml';
+import { getOpenCliConfigDir } from './paths.js';
 
 export interface ElectronAppEntry {
   /** CDP debug port (unique per app) */
@@ -90,7 +90,7 @@ function ensureLoaded(): Record<string, ElectronAppEntry> {
 
   let userApps: Record<string, ElectronAppEntry> | undefined;
   try {
-    const yamlPath = path.join(os.homedir(), '.opencli', 'apps.yaml');
+    const yamlPath = path.join(getOpenCliConfigDir(), 'apps.yaml');
     if (fs.existsSync(yamlPath)) {
       const content = fs.readFileSync(yamlPath, 'utf-8');
       const parsed = yaml.load(content) as { apps?: Record<string, ElectronAppEntry> };

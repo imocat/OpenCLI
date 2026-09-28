@@ -175,7 +175,7 @@ describe('instagram download helpers', () => {
         expect(resolveOutputDir('~/Downloads/Instagram')).toBe(path.join(os.homedir(), 'Downloads', 'Instagram'));
         expect(resolveOutputDir('~')).toBe(os.homedir());
         expect(resolveOutputDir('instagram-test')).toBe(path.resolve('instagram-test'));
-        expect(resolveOutputDir('')).toBe(path.join(os.homedir(), 'Downloads', 'Instagram'));
+        expect(resolveOutputDir('')).toBe(path.join(os.tmpdir(), 'opencli-instagram-downloads'));
     });
 });
 describe('instagram download command', () => {

@@ -72,6 +72,32 @@ describe('Page.getCurrentUrl', () => {
       page: 'page-1',
     }));
   });
+
+  it('passes the explicit tab placement through every page command', async () => {
+    sendCommandFullMock.mockResolvedValueOnce({ page: 'page-1', data: { url: 'https://example.com/' } });
+    sendCommandMock.mockResolvedValueOnce(null);
+
+    const page = new Page(
+      'site:test',
+      undefined,
+      undefined,
+      undefined,
+      'adapter',
+      'ephemeral',
+      undefined,
+      'existing-window',
+    );
+
+    await page.goto('https://example.com/', { waitUntil: 'none' });
+    await page.evaluate('document.title');
+
+    expect(sendCommandFullMock).toHaveBeenCalledWith('navigate', expect.objectContaining({
+      tabPlacement: 'existing-window',
+    }));
+    expect(sendCommandMock).toHaveBeenCalledWith('exec', expect.objectContaining({
+      tabPlacement: 'existing-window',
+    }));
+  });
 });
 
 describe('Page.evaluate', () => {

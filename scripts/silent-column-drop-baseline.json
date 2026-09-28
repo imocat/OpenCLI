@@ -782,6 +782,16 @@
     ]
   },
   {
+    "command": "xiaohongshu/login",
+    "file": "clis/xiaohongshu/auth.js",
+    "missing": [
+      "accountId",
+      "loginPage",
+      "parsed",
+      "preview"
+    ]
+  },
+  {
     "command": "xiaohongshu/search",
     "file": "clis/xiaohongshu/search.js",
     "missing": [

@@ -69,8 +69,8 @@ beforeEach(() => {
 });
 
 describe('chatgpt image output paths', () => {
-    it('expands the default and explicit home-relative output directories', () => {
-        expect(resolveOutputDir()).toBe(path.join(os.homedir(), 'Pictures', 'chatgpt'));
+    it('uses the managed temporary directory by default and expands explicit home-relative paths', () => {
+        expect(resolveOutputDir()).toBe(path.join(os.tmpdir(), 'opencli-chatgpt-images'));
         expect(resolveOutputDir('~/tmp/chatgpt-images')).toBe(path.join(os.homedir(), 'tmp', 'chatgpt-images'));
         expect(resolveOutputDir('~')).toBe(os.homedir());
     });

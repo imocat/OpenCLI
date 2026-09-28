@@ -28,8 +28,8 @@
  *   }
  */
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
+import { getOpenCliConfigDir } from '../paths.js';
 
 export type FixtureExpect = {
   rowCount?: { min?: number; max?: number };
@@ -108,7 +108,7 @@ const ID_SHAPED_KEY_PATTERNS = [
 ];
 
 export function fixturePath(site: string, command: string): string {
-  return path.join(os.homedir(), '.opencli', 'sites', site, 'verify', `${command}.json`);
+  return path.join(getOpenCliConfigDir(), 'sites', site, 'verify', `${command}.json`);
 }
 
 export function loadFixture(site: string, command: string): Fixture | null {

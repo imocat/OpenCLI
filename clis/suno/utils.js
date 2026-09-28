@@ -18,6 +18,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ArgumentError, AuthRequiredError, CommandExecutionError, EmptyResultError, TimeoutError } from '@jackwener/opencli/errors';
+import { openCliTempPath } from '../_shared/temp-path.js';
 
 export const SUNO_DOMAIN = 'suno.com';
 export const SUNO_URL = 'https://suno.com';
@@ -31,6 +32,7 @@ export const DEFAULT_SUNO_MODEL = 'chirp-fenix';
 
 export const SUPPORTED_FORMATS = ['mp3', 'm4a', 'wav', 'video', 'cover', 'metadata'];
 export const DEFAULT_FORMATS = ['mp3', 'metadata'];
+export const DEFAULT_SUNO_OUTPUT_DIR = openCliTempPath('opencli-suno');
 
 export function parseFormats(value) {
     if (value === undefined || value === null || value === '') return DEFAULT_FORMATS.slice();
@@ -49,7 +51,7 @@ export function parseFormats(value) {
 
 export function resolveSunoOutputDir(value) {
     const raw = String(value || '').trim();
-    if (!raw) return path.join(process.env.HOME || '~', 'Music', 'suno');
+    if (!raw) return DEFAULT_SUNO_OUTPUT_DIR;
     if (raw === '~') return process.env.HOME || '~';
     if (raw.startsWith('~/')) return path.join(process.env.HOME || '~', raw.slice(2));
     return path.resolve(raw);

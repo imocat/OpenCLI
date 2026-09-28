@@ -3,7 +3,9 @@ import * as path from 'node:path';
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { saveBase64ToFile } from '@jackwener/opencli/utils';
 import { ArgumentError, CommandExecutionError, EmptyResultError } from '@jackwener/opencli/errors';
+import { openCliTempPath } from '../_shared/temp-path.js';
 import { GEMINI_DOMAIN, exportGeminiImages, getGeminiVisibleImageUrls, sendGeminiMessage, startNewGeminiChat, waitForGeminiImages } from './utils.js';
+const DEFAULT_OUTPUT_DIR = openCliTempPath('opencli-gemini-images');
 function extFromMime(mime) {
     if (mime.includes('png'))
         return '.png';
@@ -26,7 +28,7 @@ function displayPath(filePath) {
 export function resolveOutputDir(value) {
     const raw = String(value || '').trim();
     if (!raw)
-        return path.join(os.homedir(), 'tmp', 'gemini-images');
+        return DEFAULT_OUTPUT_DIR;
     if (raw === '~')
         return os.homedir();
     if (raw.startsWith('~/'))
@@ -69,7 +71,7 @@ export const imageCommand = cli({
         { name: 'prompt', positional: true, required: true, help: 'Image prompt to send to Gemini' },
         { name: 'rt', default: '1:1', help: 'Ratio shorthand for aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3)' },
         { name: 'st', default: '', help: 'Style shorthand, e.g. anime, icon, watercolor' },
-        { name: 'op', default: '~/tmp/gemini-images', help: 'Output directory shorthand' },
+        { name: 'op', default: DEFAULT_OUTPUT_DIR, help: `Output directory shorthand (default: ${DEFAULT_OUTPUT_DIR})` },
         { name: 'sd', type: 'boolean', default: false, help: 'Skip download shorthand; only show Gemini page link' },
         { name: 'timeout', type: 'int', required: false, default: 240, help: 'Max seconds for the overall command (default: 240)' },
     ],

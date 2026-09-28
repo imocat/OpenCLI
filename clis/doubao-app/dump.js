@@ -1,18 +1,21 @@
 import * as fs from 'node:fs';
 import { cli, Strategy } from '@jackwener/opencli/registry';
+import { openCliTempPath } from '../_shared/temp-path.js';
+const HTML_OUTPUT_PATH = openCliTempPath('doubao-dom.html');
+const SNAPSHOT_OUTPUT_PATH = openCliTempPath('doubao-snapshot.json');
 export const dumpCommand = cli({
     site: 'doubao-app',
     name: 'dump',
     access: 'read',
-    description: 'Dump Doubao desktop app DOM and snapshot to /tmp for debugging',
+    description: 'Dump Doubao desktop app DOM and snapshot to the temporary directory for debugging',
     domain: 'doubao-app',
     strategy: Strategy.UI,
     browser: true,
     args: [],
     columns: ['Status', 'File'],
     func: async (page) => {
-        const htmlPath = '/tmp/doubao-dom.html';
-        const snapPath = '/tmp/doubao-snapshot.json';
+        const htmlPath = HTML_OUTPUT_PATH;
+        const snapPath = SNAPSHOT_OUTPUT_PATH;
         const html = await page.evaluate('document.documentElement.outerHTML');
         const snap = await page.snapshot({ compact: true });
         fs.writeFileSync(htmlPath, html);
