@@ -282,6 +282,61 @@ describe('BasePage native input routing', () => {
     expect(page.scripts[3]).toContain("return 'typed'");
   });
 
+  it('keeps native contenteditable input when the editor decorates its text', async () => {
+    const page = new ActionPage();
+    page.nativeType = vi.fn().mockResolvedValue(undefined);
+    page.results = [
+      resolveOk,
+      { ok: true, mode: 'contenteditable' },
+      {
+        ok: false,
+        actual: '第一段\u200b\n第二段\u200b',
+        expected: '第一段\n第二段',
+        length: 9,
+        mode: 'contenteditable',
+      },
+    ];
+
+    await expect(page.fillText('#editor', '第一段\n第二段')).resolves.toEqual(expect.objectContaining({
+      filled: true,
+      verified: false,
+      actual: '第一段\u200b\n第二段\u200b',
+      mode: 'contenteditable',
+    }));
+
+    expect(page.nativeType).toHaveBeenCalledWith('第一段\n第二段');
+    expect(page.scripts).toHaveLength(3);
+    expect(page.scripts.join('\n')).not.toContain("return 'typed'");
+  });
+
+  it('falls back when native contenteditable input preserves the wrong visible text', async () => {
+    const page = new ActionPage();
+    page.nativeType = vi.fn().mockResolvedValue(undefined);
+    page.results = [
+      resolveOk,
+      { ok: true, mode: 'contenteditable' },
+      {
+        ok: false,
+        actual: '错误正文',
+        expected: '正确正文',
+        length: 4,
+        mode: 'contenteditable',
+      },
+      'typed',
+      { ok: true, actual: '正确正文', expected: '正确正文', length: 4, mode: 'contenteditable' },
+    ];
+
+    await expect(page.fillText('#editor', '正确正文')).resolves.toEqual(expect.objectContaining({
+      filled: true,
+      verified: true,
+      actual: '正确正文',
+      mode: 'contenteditable',
+    }));
+
+    expect(page.scripts).toHaveLength(5);
+    expect(page.scripts[3]).toContain("return 'typed'");
+  });
+
   it('throws a structured not_editable error for non-fillable targets', async () => {
     const page = new ActionPage();
     page.results = [resolveOk, { ok: false, reason: 'not_editable', tag: 'button' }];

@@ -243,6 +243,132 @@ class CDPPage extends CDPBasePage {
     return result.result?.value;
   }
 
+  /**
+   * Set local files directly on the resolved native input node.
+   *
+   * This page implementation talks to Chrome through a direct CDP socket (or
+   * Electron's debugger proxy), so it is allowed to use the nodeId returned by
+   * the DOM domain. Opening and intercepting a chooser is only required by the
+   * chrome.debugger extension transport; doing that here can leave Electron
+   * uploaders waiting on a chooser lifecycle that never completes.
+   */
+  async setFileInput(files: string[], selector = 'input[type="file"]'): Promise<void> {
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new Error('setFileInput requires at least one local file path');
+    }
+
+    await this.bridge.send('DOM.enable');
+    const documentResult = await this.bridge.send('DOM.getDocument', { depth: 0, pierce: true });
+    const root = isRecord(documentResult) && isRecord(documentResult.root) ? documentResult.root : undefined;
+    const rootNodeId = root?.nodeId;
+    if (typeof rootNodeId !== 'number') throw new Error('DOM.getDocument returned no root node');
+
+    const queryResult = await this.bridge.send('DOM.querySelector', { nodeId: rootNodeId, selector });
+    const nodeId = isRecord(queryResult) ? queryResult.nodeId : undefined;
+    if (typeof nodeId !== 'number' || nodeId <= 0) {
+      throw new Error(`No element found matching selector: ${selector}`);
+    }
+    await this.bridge.send('DOM.setFileInputFiles', { files, nodeId });
+  }
+
+  async dropFiles(files: string[], targetSelector: string): Promise<void> {
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new Error('dropFiles requires at least one local file path');
+    }
+    if (!targetSelector.trim()) throw new Error('dropFiles requires an upload target selector');
+
+    const point = await this.evaluate(`() => {
+      const element = document.querySelector(${JSON.stringify(targetSelector)});
+      if (!element) throw new Error('Upload drop target was not found');
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === 'hidden' || style.display === 'none') {
+        throw new Error('Upload drop target is not visible');
+      }
+      element.scrollIntoView({ block: 'center', inline: 'center' });
+      const settled = element.getBoundingClientRect();
+      return {
+        x: Math.round(settled.left + settled.width / 2),
+        y: Math.round(settled.top + settled.height / 2),
+      };
+    }`) as { x?: unknown; y?: unknown } | null;
+    if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+      throw new Error(`Upload drop target could not be measured: ${targetSelector}`);
+    }
+
+    const data = { items: [], files, dragOperationsMask: 1 };
+    await this.bridge.send('Input.dispatchDragEvent', { type: 'dragEnter', x: point.x, y: point.y, data });
+    await this.bridge.send('Input.dispatchDragEvent', { type: 'dragOver', x: point.x, y: point.y, data });
+    await this.bridge.send('Input.dispatchDragEvent', { type: 'drop', x: point.x, y: point.y, data });
+  }
+
+  async setFilesViaChooser(files: string[], triggerSelector: string): Promise<void> {
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new Error('setFilesViaChooser requires at least one local file path');
+    }
+    if (!triggerSelector.trim()) throw new Error('setFilesViaChooser requires an upload trigger selector');
+
+    const point = await this.evaluate(`() => {
+      const element = document.querySelector(${JSON.stringify(triggerSelector)});
+      if (!element) throw new Error('Upload trigger was not found');
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === 'hidden' || style.display === 'none') {
+        throw new Error('Upload trigger is not visible');
+      }
+      element.scrollIntoView({ block: 'center', inline: 'center' });
+      const settled = element.getBoundingClientRect();
+      return {
+        x: Math.round(settled.left + settled.width / 2),
+        y: Math.round(settled.top + settled.height / 2),
+        tagName: element.tagName,
+      };
+    }`) as { x?: unknown; y?: unknown; tagName?: unknown } | null;
+    if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+      throw new Error(`Upload trigger could not be measured: ${triggerSelector}`);
+    }
+
+    await this.bridge.send('DOM.enable');
+    await this.bridge.send('Page.enable');
+    await this.bridge.send('Page.setInterceptFileChooserDialog', { enabled: true });
+    try {
+      const openChooser = async (): Promise<void> => {
+        try {
+          await this.bridge.send('Miuta.clickUserGesture', { selector: triggerSelector });
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          if (!/(?:method|command).*(?:not found|unknown)|wasn't found/i.test(detail)) throw error;
+          await this.nativeClick(point.x as number, point.y as number);
+        }
+      };
+      const [event] = await Promise.all([
+        this.bridge.waitForEvent('Page.fileChooserOpened', 5_000),
+        openChooser(),
+      ]);
+      const backendNodeId = isRecord(event) ? event.backendNodeId : undefined;
+      if (typeof backendNodeId !== 'number') {
+        throw new Error('Page.fileChooserOpened carried no backendNodeId');
+      }
+
+      // A chooser-opening proxy button is not a valid DOM.setFileInputFiles
+      // target and can terminate Chromium with RESULT_CODE_KILLED_BAD_MESSAGE.
+      // Validate the node from the chooser event before passing it back.
+      const description = await this.bridge.send('DOM.describeNode', { backendNodeId });
+      const node = isRecord(description) && isRecord(description.node) ? description.node : undefined;
+      const attributes = Array.isArray(node?.attributes) ? node.attributes.map(String) : [];
+      let inputType = '';
+      for (let index = 0; index + 1 < attributes.length; index += 2) {
+        if (attributes[index].toLowerCase() === 'type') inputType = attributes[index + 1].toLowerCase();
+      }
+      if (String(node?.nodeName || '').toUpperCase() !== 'INPUT' || inputType !== 'file') {
+        throw new Error('Intercepted chooser did not originate from an input[type="file"]');
+      }
+      await this.bridge.send('DOM.setFileInputFiles', { files, backendNodeId });
+    } finally {
+      await this.bridge.send('Page.setInterceptFileChooserDialog', { enabled: false }).catch(() => {});
+    }
+  }
+
   async getCookies(opts: { domain?: string; url?: string } = {}): Promise<BrowserCookie[]> {
     const result = await this.bridge.send('Network.getCookies', opts.url ? { urls: [opts.url] } : {});
     const cookies = isRecord(result) && Array.isArray(result.cookies) ? result.cookies : [];

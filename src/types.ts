@@ -129,6 +129,17 @@ export interface IPage {
    */
   setFileInput?(files: string[], selector?: string): Promise<void>;
   /**
+   * Click a visible upload control with trusted pointer events, intercept the
+   * native chooser it opens, and assign local files to the chooser's real
+   * input node. Useful when the site must run button-side setup first.
+   */
+  setFilesViaChooser?(files: string[], triggerSelector: string): Promise<void>;
+  /**
+   * Dispatch trusted CDP drag events carrying local file paths onto a visible
+   * upload target. Useful for dropzones whose chooser is owned by the embedder.
+   */
+  dropFiles?(files: string[], targetSelector: string): Promise<void>;
+  /**
    * Insert text via native CDP Input.insertText into the currently focused element.
    * Useful for rich editors that ignore synthetic DOM value/text mutations.
    */

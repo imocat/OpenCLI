@@ -994,7 +994,18 @@ export abstract class BasePage implements IPage {
     }
 
     let verification = await this.evaluate(verifyFilledResolvedJs(text)) as FillResolvedResult | null;
-    if (usedNativeInput && verification?.ok !== true) {
+    const normalizeRichEditorText = (value: string): string => value
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const nativeRichEditorAcceptedText = usedNativeInput
+      && verification?.ok !== true
+      && verification !== null
+      && 'mode' in verification
+      && verification?.mode === 'contenteditable'
+      && 'actual' in verification
+      && normalizeRichEditorText(verification.actual) === normalizeRichEditorText(text);
+    if (usedNativeInput && verification?.ok !== true && !nativeRichEditorAcceptedText) {
       await this.evaluate(typeResolvedJs(text));
       verification = await this.evaluate(verifyFilledResolvedJs(text)) as FillResolvedResult | null;
     }
